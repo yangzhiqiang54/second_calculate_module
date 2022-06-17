@@ -63,10 +63,15 @@ static void in_stack(scl_stack_typedef *pstack, float v, uint8_t t, char s) {
 
 /* 出栈函数 */
 static scl_stack_typedef out_stack(scl_stack_typedef *pstack) {
+    scl_stack_typedef sta = {0};
     uint16_t *pnum = get_stack_top(pstack);
     if((*pnum) > 0) {
         (*pnum) -= 1;
-        return pstack[(*pnum)-1];
+        sta = pstack[(*pnum)];
+        pstack[(*pnum)].val = 0;
+        pstack[(*pnum)].type = 0;
+        pstack[(*pnum)].symbol = 0;
+        return sta;
     }
     else pstack[0];
 }
@@ -125,18 +130,33 @@ const float basedata[20] = {1,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8
 /* 
     对输入字符串进行预处理 
     1.判断必须以[]头尾括起来
-    2.删除空格等无关字符
-    3.连续符号，报错退出
+    2.括号必须按左右顺序成对出现
+    3.删除空格等无关字符
+    4.连续符号，报错退出
     @str:输入的运算字符串
     @return:预处理结果 0成功 -1失败
 */
-static int scl_prosolv(char* str) {
+static int scl_presolv(char* str) {
     int res = 0, i=0, j=0, stlen=0;
     scl_stack_typedef st_scl_temp;
 
     /* 判断是否由 [ ] 包括 */
     stlen = strlen(str);
     if(stlen <=2 || str[0] != '[' || str[stlen-1] != ']') {
+        res = -1;
+        goto EXIT;
+    }
+
+    /* 判断括号是否按左右顺序成对出现 */
+    for(i=0,j=0; i<stlen; i++) {
+        if(str[i] == '(') j++;
+        if(str[i] == ')') j--;
+        if(j < 0) {
+            res = -1;
+            goto EXIT;
+        }
+    }
+    if(j != 0) {
         res = -1;
         goto EXIT;
     }
@@ -207,7 +227,7 @@ static int scl_prosolv(char* str) {
 */
 static void scl_cacl(void) {
     int i, pre_statck_num;
-    scl_stack_typedef st_cur, st_nextcur;
+    scl_stack_typedef st_cur, st_cur2;
     float cval=0;
 
     /* 从预处理栈中出个取出进行计算（从左往右） */
@@ -224,32 +244,57 @@ static void scl_cacl(void) {
             if(st_cur.symbol == '+' || st_cur.symbol == '-') {
                 in_stack(scl_stack_main, st_cur.val, st_cur.type, st_cur.symbol);
             }
+            /* 乘除运算 */
             else if(st_cur.symbol == '*' || st_cur.symbol == '/') {
                 /* *和/后面是数值，直接运算 */
                 if(scl_stack_pre[i+1].type == 1) {
-                    st_nextcur = scl_stack_pre[i+1];
+                    st_cur2 = out_stack(scl_stack_main);
                     if(st_cur.symbol == '*') {
-                        cval = st_cur.val * st_nextcur.val;
+                        cval = st_cur2.val * scl_stack_pre[i+1].val;
                     }else if(st_cur.symbol == '/') {
-                        cval = st_cur.val / st_nextcur.val;
+                        cval = st_cur2.val / scl_stack_pre[i+1].val;
                     }
+                    i++;
                     /* 将*和/计算后的结果入栈 */
                     in_stack(scl_stack_main, cval, 1, 0);
                 }
-                /* *和/后面是运算符，先把这当前符号入栈 */
+                /* *和/后面是运算符，先把当前符号入栈 */
                 else {
                     in_stack(scl_stack_main, st_cur.val, st_cur.type, st_cur.symbol);
                 }
             }
+            /* 遇到括号先入临时栈 */
+            else if(st_cur.symbol == '(') {
+
+            }
         }
     }
 
+    /* 判断是否只剩数字和加减 */
+    uint8_t num_add_reduce_flag = 0;
+    for(i=0; i<main_top; i++) {
+        if(scl_stack_main[i].type == 2) {
+            if(scl_stack_main[i].symbol == '(') {
+                num_add_reduce_flag = 1;
+            }
+        }
+    }
+
+    /* 如果还存在括号，进行递归运算 */
+    if(num_add_reduce_flag) {
+        scl_cacl();
+    }
+
+    /* 计算剩余的数字和加减符号，从左往右 */
+
+
+    print_stack(scl_stack_main);
 
 }
 
 
 char srcstr[100] = {"[#15 + #2*#3 -(#4-#5)]"};
-char srcstr2[100] = {"[#1 + #2 * #3]"};
+char srcstr2[100] = {"[#1 + #2 * #3-#5]"};
 float exval[20] = {0};
 void main(char argc, char* agrv[]) {
     printf("  second calc module! \n\n");
@@ -269,12 +314,13 @@ void main(char argc, char* agrv[]) {
 
     scl_init();
     printf("\n\n src_str: %s \n", srcstr2);
-    if(scl_prosolv(srcstr2) < 0) {
+    if(scl_presolv(srcstr2) < 0) {
         printf("calc string error!(%s)\n", srcstr2);
     }
-
-
     print_stack(scl_stack_pre);
+
+    scl_cacl();
+    
 }
 
 
