@@ -230,7 +230,7 @@ static void scl_cacl(void) {
     scl_stack_typedef st_cur, st_cur2;
     float cval=0;
 
-    /* 从预处理栈中出个取出进行计算（从左往右） */
+    /* 从预处理栈中逐个取出进行计算（从左往右） */
     pre_statck_num = pre_top;
     for(int i=0; i<pre_statck_num; i++) {
         st_cur = scl_stack_pre[i];
