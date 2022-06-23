@@ -64,18 +64,14 @@ static void in_stack(scl_stack_typedef *pstack, float v, uint8_t t, char s) {
 }
 
 /* 出栈函数 */
-static scl_stack_typedef out_stack(scl_stack_typedef *pstack) {
+static scl_stack_typedef* out_stack(scl_stack_typedef *pstack) {
     scl_stack_typedef sta = {0};
     uint16_t *pnum = get_stack_top(pstack);
     if((*pnum) > 0) {
         (*pnum) -= 1;
-        sta = pstack[(*pnum)];
-        pstack[(*pnum)].val = 0;
-        pstack[(*pnum)].type = 0;
-        pstack[(*pnum)].symbol = 0;
-        return sta;
+        return (pstack + *pnum);
     }
-    else pstack[0];
+    else NULL;
 }
 
 /* 指定位置取栈函数 */
@@ -183,7 +179,7 @@ static int scl_presolv(char* str) {
         }
     }
         
-    /* 将输入字符格式化到预处理栈中 */
+    /* 将输入字符格式化到预处理栈中，从右往左将字符串入栈 */
     int numid, numdigit;
     for(i=1; i<stlen-1; i++) { //跳过'['和']'
         switch(str[i]) {
@@ -226,50 +222,60 @@ static int scl_presolv(char* str) {
 /*
     进行出栈操作并进行算数运算
 */
-static void scl_cacl(scl_stack_typedef *tar_stack) {
-    int i, pre_statck_num;
-    scl_stack_typedef st_cur, st_cur2, st_temp[10];
+uint8_t main_pos = 0;
+static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack) {
+    int i=0;
+    scl_stack_typedef st_temp[20];
+    scl_stack_typedef *st_cur, *st_cur2;
     float cval=0; 
 
-    /* 从预处理栈中逐个取出进行计算（从左往右） */
-    pre_statck_num = *get_stack_top(tar_stack);
-    for(int i=0; i<pre_statck_num; i++) {
-        st_cur = tar_stack[i];
-        if(st_cur.type == 1) {
+    /* 从预处理栈中逐个取出进行计算 */
+    while(st_cur = out_stack(tar_stack)) {
+        /* 取出是数值 */
+        if(st_cur->type == 1) {
             /* 数值先入栈，等待运算符号 */
-            in_stack(scl_stack_main, st_cur.val, st_cur.type, st_cur.symbol);
+            in_stack(scl_stack_main, st_cur->val, st_cur->type, st_cur->symbol);
         }
-        else if(st_cur.type == 2) {
-            /* 运算符号 */
+        /* 去除是符号 */
+        else if(st_cur->type == 2) {
             /* +和- 先入栈，最后统一计算 */
-            if(st_cur.symbol == '+' || st_cur.symbol == '-') {
-                in_stack(scl_stack_main, st_cur.val, st_cur.type, st_cur.symbol);
+            if(st_cur->symbol == '+' || st_cur->symbol == '-') {
+                in_stack(scl_stack_main, st_cur->val, st_cur->type, st_cur->symbol);
             }
             /* 乘除运算 */
-            else if(st_cur.symbol == '*' || st_cur.symbol == '/') {
+            else if(st_cur->symbol == '*' || st_cur->symbol == '/') {
                 /* *和/后面是数值，直接运算 */
-                if(tar_stack[i+1].type == 1) {
+                if((tar_stack+1)->type == 1) {
                     st_cur2 = out_stack(scl_stack_main);
-                    if(st_cur.symbol == '*') {
-                        cval = st_cur2.val * tar_stack[i+1].val;
-                    }else if(st_cur.symbol == '/') {
-                        cval = st_cur2.val / tar_stack[i+1].val;
+                    if(st_cur->symbol == '*') {
+                        cval = st_cur2->val * (tar_stack+1)->val;
+                    }else if(st_cur->symbol == '/') {
+                        cval = st_cur2->val / (tar_stack+1)->val;
                     }
-                    i++;
                     /* 将*和/计算后的结果入栈 */
                     in_stack(scl_stack_main, cval, 1, 0);
                 }
-                /* *和/后面是运算符，先把当前符号入栈 */
+                /* *和/后面是运算符，根据符号分别处理 */
                 else {
-                    in_stack(scl_stack_main, st_cur.val, st_cur.type, st_cur.symbol);
+                    /* *和/后面是（ */
+                    if( (tar_stack+1)->symbol == '(' ) {
+                        /* 补入一个*号 */
+                        in_stack(scl_stack_main, 0, 2, '*');
+                        /* 递归 */
+                        scl_calc(st_temp);
+                    }
+
+
+
+                    in_stack(scl_stack_main, st_cur->val, st_cur->type, st_cur->symbol);
                 }
             }
             /* 遇到左括号先入临时栈 */
-            else if(st_cur.symbol == '(') {
-
+            else if( st_cur->symbol == '(' ) {
+                
             }
             /* 遇到右括号计算临时栈里面的内容 */
-            else if(st_cur.symbol == ')') {
+            else if( st_cur->symbol == ')' ) {
                 
             }
         }
@@ -326,7 +332,7 @@ void main(char argc, char* agrv[]) {
     }
     print_stack(scl_stack_pre);
 
-    // scl_cacl(scl_stack_pre);
+    // scl_calc(scl_stack_pre);
     
 }
 
