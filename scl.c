@@ -20,20 +20,27 @@ typedef struct scl_stack {
     float val;      //数值
     uint8_t type;   //0-NULL 1-值 2-运算符
     char symbol;    //运算符号
+    uint8_t sybval; //运算符数值
+    uint8_t en;     //有效标记位
 }scl_stack_typedef;
 /***** end 结构体自定义 ****/
 
+/**** start 宏定义 ****/
+#define STACK_MAXNUM   30
+/**** end 宏定义 ****/
+
 /**** start 声明变量 ****/
 static scl_stack_typedef scl_stack_pre[50];   //预处理堆栈
-static scl_stack_typedef scl_stack_main[50];  //主堆栈
+static scl_stack_typedef scl_stack_main[30];  //主堆栈
 // static scl_stack_typedef scl_stack_temp[50];  //临时堆栈
 static uint16_t pre_top = 0;
+static uint16_t pre_bot = 0;
 static uint16_t main_top = 0;
+static uint16_t main_bot = 0;
 // static uint16_t temp_top = 0;
 /**** end 声明变量 ****/
 
 /**** start 声明函数 ****/
-
 /**** end 声明函数 ****/
 
 /* 模块初始化函数 */
@@ -46,33 +53,39 @@ static void scl_init(void) {
     // temp_top = 0;
 }
 
-/* 获取入栈数 */
-static uint16_t* get_stack_top(scl_stack_typedef *ps) {
-    if(ps == scl_stack_pre) return &pre_top;
-    else if(ps == scl_stack_main) return &main_top;
-    // else if(ps == scl_stack_temp) return &temp_top;
-    else return 0;
+
+/* 入栈函数 从栈顶入 @t:1值 2运算符*/
+static void in_stack_top(scl_stack_typedef *pstack, float v, uint8_t t, char s) {
+    
 }
 
-/* 入栈函数 @t:1值 2运算符*/
-static void in_stack(scl_stack_typedef *pstack, float v, uint8_t t, char s) {
-    uint16_t *pnum = get_stack_top(pstack);
-    pstack[*pnum].val = v;
-    pstack[*pnum].type = t;
-    pstack[*pnum].symbol = s;
-    (*pnum)++;
+/* 入栈函数 从栈底入 @t:1值 2运算符*/
+static void in_stack_top(scl_stack_typedef *pstack, float v, uint8_t t, char s) {
+
 }
 
-/* 出栈函数 */
-static scl_stack_typedef* out_stack(scl_stack_typedef *pstack) {
-    scl_stack_typedef sta = {0};
-    uint16_t *pnum = get_stack_top(pstack);
-    if((*pnum) > 0) {
-        (*pnum) -= 1;
-        return (pstack + *pnum);
+/* 出栈函数 从栈顶出 */
+static scl_stack_typedef* out_stack_top(scl_stack_typedef *pstack) {
+    for(int i=0; i<STACK_MAXNUM; i++) {
+        if(pstack[STACK_MAXNUM-1-i].en != 0) {
+            pstack[STACK_MAXNUM-1-i].en = 0;
+            return &pstack[STACK_MAXNUM-1-i];
+        }
     }
-    else NULL;
+    return NULL;
 }
+
+/* 出栈函数 从栈底出 */
+static scl_stack_typedef* out_stack_bot(scl_stack_typedef *pstack) {
+    for(int i=0; i<STACK_MAXNUM; i++) {
+        if(pstack[i].en != 0) {
+            pstack[i].en = 0;
+            return &pstack[i];
+        }
+    }
+    return NULL;
+}
+
 
 /* 指定位置取栈函数 */
 static scl_stack_typedef out_stack_index(scl_stack_typedef *pstack, int num) {
@@ -179,7 +192,7 @@ static int scl_presolv(char* str) {
         }
     }
         
-    /* 将输入字符格式化到预处理栈中，从右往左将字符串入栈 */
+    /* 将输入字符格式化到预处理栈中 */
     int numid, numdigit;
     for(i=1; i<stlen-1; i++) { //跳过'['和']'
         switch(str[i]) {
@@ -225,7 +238,7 @@ static int scl_presolv(char* str) {
 uint8_t main_pos = 0;
 static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack) {
     int i=0;
-    scl_stack_typedef st_temp[20];
+    scl_stack_typedef st_infun[20];
     scl_stack_typedef *st_cur, *st_cur2;
     float cval=0; 
 
@@ -262,7 +275,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack) {
                         /* 补入一个*号 */
                         in_stack(scl_stack_main, 0, 2, '*');
                         /* 递归 */
-                        scl_calc(st_temp);
+                        // scl_calc(st_temp);
                     }
 
 
@@ -331,6 +344,9 @@ void main(char argc, char* agrv[]) {
         printf("calc string error: \"%s\"\n", srcstr2);
     }
     print_stack(scl_stack_pre);
+
+    out_stack_bot(scl_stack_pre);
+    out_stack_bot(scl_stack_main);
 
     // scl_calc(scl_stack_pre);
     
