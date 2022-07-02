@@ -74,6 +74,19 @@ static scl_stack_typedef* out_stack(scl_stack_typedef *pstack) {
     else NULL;
 }
 
+/* 颠倒栈中的顺序 */
+static void reversal_stack(scl_stack_typedef *pstack) {
+    scl_stack_typedef temp_stack = {0};
+    uint16_t top_num = *get_stack_top(pstack);
+    int exnum = top_num / 2;
+
+    for(int i=0; i < exnum; i++) {
+        temp_stack = pstack[i];
+        pstack[i] = pstack[top_num-1-i];
+        pstack[top_num-1-i] = temp_stack;
+    }
+}
+
 /* 指定位置取栈函数 */
 static scl_stack_typedef out_stack_index(scl_stack_typedef *pstack, int num) {
     
@@ -321,16 +334,15 @@ void main(char argc, char* agrv[]) {
         printf("#%d=%.3f ", i+1, exval[i]);
     }
 
-    // scl_init();
-    // printf("\n\n src_str: %s \n", srcstr);
-    // scl_prosolv(srcstr);
-
     scl_init();
     printf("\n\n src_str: %s \n", srcstr2);
+    /* 字符串预处理，格式化入栈 */
     if(scl_presolv(srcstr2) < 0) {
         printf("calc string error: \"%s\"\n", srcstr2);
     }
     print_stack(scl_stack_pre);
+    /* 颠倒字符串顺序，方便出栈 */
+    reversal_stack(scl_stack_pre);
 
     // scl_calc(scl_stack_pre);
     
