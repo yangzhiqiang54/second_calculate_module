@@ -2,8 +2,8 @@
     二次计算模块
     1.支持的运算符号优先级：
         最高：#取值 
-        较高：()括号 b(n)取bit值
-        中等：~取反 f(n)符号位(0正1负) ^指数
+        较高：()括号 
+        中等(暂不支持)：b(n)取bit值 ~取反 f(n)符号位(0正1负) ^指数
         较低：*乘 /除
         最低：+加 -减 
     2.对于输入的小数取3位有效小数位
@@ -67,12 +67,19 @@ static void in_stack(scl_stack_typedef *pstack, uint16_t *topnum, float v, uint8
 
 /* 出栈函数 */
 static scl_stack_typedef* out_stack(scl_stack_typedef *pstack, uint16_t *topnum) {
-    scl_stack_typedef sta = {0};
     if((*topnum) > 0) {
         (*topnum) -= 1;
         return (pstack + *topnum);
     }
-    else NULL;
+    else return NULL;
+}
+
+/* 尝试出栈函数 */
+static scl_stack_typedef* out_try_stack(scl_stack_typedef *pstack, uint16_t *topnum) {
+    if((*topnum) > 0) {
+        return (pstack + *topnum - 1);
+    }
+    else return NULL;
 }
 
 /* 颠倒栈中的顺序 */
@@ -237,97 +244,131 @@ static int scl_presolv(char* str) {
     进行出栈操作并进行算数运算
 */
 uint8_t main_pos = 0;
-static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack) {
-    int i=0;
-    scl_stack_typedef st_recs[STACK_TOPMAXNUM];
+static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_topnum) {
+    scl_stack_typedef st_recs[STACK_TOPMAXNUM] = {0};
+    uint16_t recs_topnum = 0;
+    scl_stack_typedef st_res = {0}, st_rec = {0};
     scl_stack_typedef *st_cur, *st_cur2;
-    uint16_t topnum = 0;
-    float cval=0; 
+    float cval = 0; 
+    char cchar = 0;
 
     /* 从预处理栈中逐个取出进行计算 */
-    while(st_cur = out_stack(tar_stack, NULL)) {
+    while(st_cur = out_stack(tar_stack, tar_topnum)) {
         /* 取出是数值 */
         if(st_cur->type == 1) {
             /* 数值先入栈，等待运算符号 */
-            in_stack(scl_stack_main, &topnum, st_cur->val, st_cur->type, st_cur->symbol);
+            in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol);
         }
-        /* 去除是符号 */
+        /* 取出是符号 */
         else if(st_cur->type == 2) {
             /* +和- 先入栈，最后统一计算 */
             if(st_cur->symbol == '+' || st_cur->symbol == '-') {
-                in_stack(scl_stack_main, &topnum, st_cur->val, st_cur->type, st_cur->symbol);
+                in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol);
             }
             /* 乘除运算 */
             else if(st_cur->symbol == '*' || st_cur->symbol == '/') {
                 /* *和/后面是数值，直接运算 */
-                if((tar_stack+1)->type == 1) {
-                    st_cur2 = out_stack(scl_stack_main, &topnum);
+                if(out_try_stack(tar_stack, tar_topnum)->type == 1) {
+                    st_cur2 = out_stack(tar_stack, tar_topnum);
                     if(st_cur->symbol == '*') {
-                        cval = st_cur2->val * (tar_stack+1)->val;
+                        cval = st_cur2->val * out_stack(tar_stack, tar_topnum)->val;
                     }else if(st_cur->symbol == '/') {
-                        cval = st_cur2->val / (tar_stack+1)->val;
+                        cval = st_cur2->val / out_stack(tar_stack, tar_topnum)->val;
                     }
                     /* 将*和/计算后的结果入栈 */
-                    in_stack(scl_stack_main, &topnum, cval, 1, 0);
+                    in_stack(tar_stack, tar_topnum, cval, 1, 0);
                 }
                 /* *和/后面是运算符，根据符号分别处理 */
-                else {
-                    /* *和/后面是（ */
-                    if( (tar_stack+1)->symbol == '(' ) {
-                        /* 补入一个*号 */
-                        in_stack(scl_stack_main, &topnum, 0, 2, '*');
+                else if(out_try_stack(tar_stack, tar_topnum)->type == 2) {
+                    /* 如果*和/后面是左括号 */
+                    if( out_try_stack(tar_stack, tar_topnum)->symbol == '(' ) {
+                        /* 取出左括号 */
+                        out_stack(tar_stack, tar_topnum);
+                        /* 补入左括号前的符号 */
+                        in_stack(st_recs, &recs_topnum, 0, 2, st_cur->symbol);
                         /* 递归 */
-                        scl_calc(st_recs);
+                        st_rec = scl_calc(tar_stack, tar_topnum);
+                        /* 递归后的结果入栈 */
+                        in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol);
                     }
-
-
-
-                    in_stack(st_recs, &topnum, st_cur->val, st_cur->type, st_cur->symbol);
                 }
             }
             /* 遇到左括号先入临时栈 */
             else if( st_cur->symbol == '(' ) {
-                
+                /* 递归 */
+                st_rec = scl_calc(tar_stack, tar_topnum);
+                /* 递归后的结果入栈 */
+                in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol);
             }
             /* 遇到右括号计算临时栈里面的内容 */
             else if( st_cur->symbol == ')' ) {
-                
+                /* 退出循环，计算recs栈中的内容 */
+                /* 通常情况，这边已经到了最后一层递归 */
+                break;
             }
         }
     }
 
-#if 1
-    /* 判断是否只剩数字和加减 */
-    uint8_t num_add_reduce_flag = 0;
-    for(i=0; i<main_top; i++) {
-        if(scl_stack_main[i].type == 2) {
-            if(scl_stack_main[i].symbol == '(') {
-                num_add_reduce_flag = 1;
+    /* 计算只含加减乘除数字的表达式 */
+    int i=0, j=0;
+    for(i=0; i<recs_topnum; i++) {
+        /* 如果还有括号，赋0退出 */
+        if(st_recs[i].type == 2 && ( st_recs[i].symbol == '(' || st_recs[i].symbol == ')' )) {
+            st_res.val = 0;
+            return st_res;
+        }
+        /* 如果是数字，先放回 */
+        else if(st_recs[i].type == 1) {
+            st_recs[j++] = st_recs[i];
+        }
+        /* 如果是加号或者减号，先放回 */
+        if(st_recs[i].type == 2 && ( st_recs[i].symbol == '+' || st_recs[i].symbol == '-')) {
+            st_recs[j++] = st_recs[i];
+        }
+        /* 如果是乘号或者除号，直接与后面一个数进行计算，然后将结果放回 */
+        else if(st_recs[i].type == 2 && ( st_recs[i].symbol == '*' || st_recs[i].symbol == '/')) {
+            if(st_recs[i].symbol == '*') {
+                cval = st_recs[i-1].val * st_recs[i+1].val;
             }
+            else if(st_recs[i].symbol == '/') {
+                cval = st_recs[i-1].val / st_recs[i+1].val;
+            }
+            i++;
+            j--;
+            st_recs[j].val = cval;
+            st_recs[j].type = 1;
+            st_recs[j].symbol = 0;
+            j++;
         }
     }
-#endif
 
-    /* 如果还存在括号，进行递归运算 */
-    // if(num_add_reduce_flag) {
+    /* 计算只含加减数字的表达式 */
+    for(i=0; i<j; i++) {
+        if(i==0) cval = st_recs[0].val;
+        if(st_recs[i].type == 2 && st_recs[i].symbol == '+') {
+            cval += st_recs[i+1].val;
+            i++;
+        }
+        else if(st_recs[i].type == 2 && st_recs[i].symbol == '-') {
+            cval -= st_recs[i+1].val;
+            i++;
+        }
+    }
 
-    // }
-
-    /* 计算剩余的数字和加减符号，从左往右 */
-
-
-    print_stack(scl_stack_main);
-
+    st_res.type = 1;
+    st_res.val = cval;
+    return st_res;
 }
 
 
 char srcstr[50] = {"[#15 + #2*#3 -(#4-#5)]"};
-char srcstr2[50] = {"[#1 + #2 * (#3-#5)]"};
+char srcstr2[50] = {"[#1 + #2 - (#2-#8)]"};
 float exval[20] = {0};
 void main(char argc, char* agrv[]) {
     printf("  second calc module! \n\n");
 
     int i=0;
+    scl_stack_typedef calc_res = {0};
     
     /* 模拟采集点位数据 */
     for(i=0; i<20; i++) {
@@ -348,8 +389,9 @@ void main(char argc, char* agrv[]) {
     reversal_stack(scl_stack_pre);
 
     /* 算术运算 */
-    scl_calc(scl_stack_pre);
+    calc_res = scl_calc(scl_stack_pre, &pre_top);
     
+    printf("\n calculate res: %.4f\n", calc_res.val);
 }
 
 
