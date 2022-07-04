@@ -271,12 +271,12 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                 if(out_try_stack(tar_stack, tar_topnum)->type == 1) {
                     st_cur2 = out_stack(tar_stack, tar_topnum);
                     if(st_cur->symbol == '*') {
-                        cval = st_cur2->val * out_stack(tar_stack, tar_topnum)->val;
+                        cval = st_cur2->val * out_stack(st_recs, &recs_topnum)->val;
                     }else if(st_cur->symbol == '/') {
-                        cval = st_cur2->val / out_stack(tar_stack, tar_topnum)->val;
+                        cval = st_cur2->val / out_stack(st_recs, &recs_topnum)->val;
                     }
                     /* 将*和/计算后的结果入栈 */
-                    in_stack(tar_stack, tar_topnum, cval, 1, 0);
+                    in_stack(st_recs, &recs_topnum, cval, 1, 0);
                 }
                 /* *和/后面是运算符，根据符号分别处理 */
                 else if(out_try_stack(tar_stack, tar_topnum)->type == 2) {
@@ -362,7 +362,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
 
 
 char srcstr[50] = {"[#15 + #2*#3 -(#4-#5)]"};
-char srcstr2[50] = {"[#1 + #2 - (#2-#8)]"};
+char srcstr2[50] = {"[#1 + #2*#3 - (#2-#8)]"};
 float exval[20] = {0};
 void main(char argc, char* agrv[]) {
     printf("  second calc module! \n\n");
@@ -377,8 +377,10 @@ void main(char argc, char* agrv[]) {
         printf("#%d=%.3f ", i+1, exval[i]);
     }
 
+    /* 计算前初始化 */
     scl_init();
     printf("\n\n src_str: %s \n", srcstr2);
+
     /* 字符串预处理，格式化入栈 */
     if(scl_presolv(srcstr2) < 0) {
         printf("calc string error: \"%s\"\n", srcstr2);
@@ -388,7 +390,7 @@ void main(char argc, char* agrv[]) {
     /* 颠倒字符串顺序，方便出栈 */
     reversal_stack(scl_stack_pre);
 
-    /* 算术运算 */
+    /* 进行算术运算 */
     calc_res = scl_calc(scl_stack_pre, &pre_top);
     
     printf("\n calculate res: %.4f\n", calc_res.val);
