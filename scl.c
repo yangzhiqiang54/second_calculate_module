@@ -251,6 +251,24 @@ static int scl_presolv(char* str) {
                 i += numdigit;
             break;
 
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                /* 固定数值入栈 */
+                numid = get_num(&str[i]);
+                /* 入栈 */
+                in_stack(scl_stack_pre, &pre_top, numid, 1, 0);
+                /* 字符串向后偏移 位数 */
+                numdigit = get_num_digit(numid);
+                i += (numdigit-1);
+            break;
+
             case '+':
             case '-':
             case '*':
@@ -426,7 +444,8 @@ float second_calc_fun(char* express) {
     return calc_res.val;
 }
 
-char srcstr[50] = {"[#1 + #2 * #3 - ( #4 - #2 * ( #5 - #8 ) )]"};
+char srcstr[50] = {"[#1 + #2 * #3 - ( #4 - 3 * ( #5 - #8 ) ) + 100]"};
+char srcstr2[50] = {"[1 + 2 * 3 - 3 * ( 4 - 3 * (2-4) )]"};
 void main(char argc, char* agrv[]) {
     
     float result_val = 0;
