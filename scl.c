@@ -28,10 +28,10 @@ typedef struct scl_stack {
 
 /**** start 声明变量 ****/
 static scl_stack_typedef scl_stack_pre[STACK_TOPMAXNUM];   //预处理堆栈
-static scl_stack_typedef scl_stack_main[STACK_TOPMAXNUM];  //主堆栈
+// static scl_stack_typedef scl_stack_main[STACK_TOPMAXNUM];  //主堆栈
 // static scl_stack_typedef scl_stack_temp[STACK_TOPMAXNUM];  //临时堆栈
 static uint16_t pre_top = 0;
-static uint16_t main_top = 0;
+// static uint16_t main_top = 0;
 // static uint16_t temp_top = 0;
 /**** end 声明变量 ****/
 
@@ -42,17 +42,17 @@ static uint16_t main_top = 0;
 /* 模块初始化函数 */
 static void scl_init(void) {
     memset(scl_stack_pre, 0, sizeof(scl_stack_pre));
-    memset(scl_stack_main, 0, sizeof(scl_stack_main));
+    // memset(scl_stack_main, 0, sizeof(scl_stack_main));
     // memset(scl_stack_temp, 0, sizeof(scl_stack_temp));
     pre_top = 0;
-    main_top = 0;
+    // main_top = 0;
     // temp_top = 0;
 }
 
 /* 获取入栈数 */
 static uint16_t* get_stack_top(scl_stack_typedef *ps) {
     if(ps == scl_stack_pre) return &pre_top;
-    else if(ps == scl_stack_main) return &main_top;
+    // else if(ps == scl_stack_main) return &main_top;
     // else if(ps == scl_stack_temp) return &temp_top;
     else return 0;
 }
@@ -106,7 +106,7 @@ static void print_stack(scl_stack_typedef *pstack) {
     uint16_t num = *get_stack_top(pstack);
 
     if(pstack == scl_stack_pre) printf("\n#pre stakc print: \nnum  type  val    symbol\n");
-    else if(pstack == scl_stack_main) printf("\n#main stakc print: \nnum  type  val    symbol\n");
+    // else if(pstack == scl_stack_main) printf("\n#main stakc print: \nnum  type  val    symbol\n");
     // else if(pstack == scl_stack_temp) printf("\n#temp stakc print: \nnum  type  val    symbol\n");
     else return;
 
@@ -144,7 +144,40 @@ static int get_num_digit(int num) {
     return pos;
 }
 
-const float basedata[20] = {1,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
+/*
+    设置源数据的指针地址和偏移量
+    @src:第一个源数据地址
+    @offest_size:每个源数据之间的偏移量（字节）
+*/
+static float *psrc_val = NULL;
+static int src_offset = 0;
+void second_calc_set_source_val(float *src, int offset_byte) {
+    psrc_val = src;
+    src_offset = offset_byte;
+}
+
+
+/* 
+    获取#id所对应的数值,此数值由外部提供
+    @id:从1开始 
+*/
+float basedata_test[20] = {1,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
+static float scl_get_value(uint16_t id) {
+    #if 1 //起始地址加偏移量取实际数据
+        uint8_t *add = NULL;
+        float getval = 0;
+        if(id == 0) return *psrc_val;
+        else {
+            add = (uint8_t *)psrc_val;
+            add += (src_offset * (id - 1));
+            getval = *(float *)add;
+            return getval;
+        }
+    #else //用测试数据
+        if(id == 0) return 1;
+        else return basedata_test[id-1];
+    #endif
+}
 
 /* 
     对输入字符串进行预处理 
@@ -212,7 +245,7 @@ static int scl_presolv(char* str) {
                     break;
                 }
                 /* 入栈 */
-                in_stack(scl_stack_pre, &pre_top, basedata[numid-1], 1, 0);
+                in_stack(scl_stack_pre, &pre_top, scl_get_value(numid), 1, 0);
                 /* 字符串向后偏移 位数 */
                 numdigit = get_num_digit(numid);
                 i += numdigit;
@@ -303,7 +336,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
             /* 遇到右括号计算临时栈里面的内容 */
             else if( st_cur->symbol == ')' ) {
                 /* 退出循环，计算recs栈中的内容 */
-                /* 通常情况，这边已经到了最后一层递归 */
+                /* 通常情况，到这边会退出当前递归 */
                 break;
             }
         }
@@ -344,7 +377,10 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
 
     /* 计算只含加减数字的表达式 */
     for(i=0; i<j; i++) {
-        if(i==0) cval = st_recs[0].val;
+        if(i==0) {
+            if(st_recs[i].type == 1) cval = st_recs[0].val;
+            else cval = 0;
+        }
         if(st_recs[i].type == 2 && st_recs[i].symbol == '+') {
             cval += st_recs[i+1].val;
             i++;
@@ -360,40 +396,45 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
     return st_res;
 }
 
+/* 
+    外部调用，进行二次计算 
+    @express:运算表达式字符串
+*/
+float second_calc_fun(char* express) {
+    // printf("\n  second calc module! \n");
+    // printf("\n\n src_str: %s \n", express);
 
-char srcstr[50] = {"[#15 + #2*#3 -(#4-#5)]"};
-char srcstr2[50] = {"[#1 + #2*#3 - (#2-#8)]"};
-float exval[20] = {0};
-void main(char argc, char* agrv[]) {
-    printf("  second calc module! \n\n");
-
-    int i=0;
     scl_stack_typedef calc_res = {0};
     
-    /* 模拟采集点位数据 */
-    for(i=0; i<20; i++) {
-        exval[i] = i+1;
-        if(i % 5 == 0) printf("\n");
-        printf("#%d=%.3f ", i+1, exval[i]);
-    }
-
     /* 计算前初始化 */
     scl_init();
-    printf("\n\n src_str: %s \n", srcstr2);
 
     /* 字符串预处理，格式化入栈 */
-    if(scl_presolv(srcstr2) < 0) {
-        printf("calc string error: \"%s\"\n", srcstr2);
+    if(scl_presolv(express) < 0) {
+        printf("calc string error: \"%s\"\n", express);
     }
-    print_stack(scl_stack_pre);
+
+    /* 打印栈中数据 */
+    // print_stack(scl_stack_pre);
 
     /* 颠倒字符串顺序，方便出栈 */
     reversal_stack(scl_stack_pre);
 
     /* 进行算术运算 */
     calc_res = scl_calc(scl_stack_pre, &pre_top);
+
+    return calc_res.val;
+}
+
+char srcstr[50] = {"[#1 + #2 * #3 - ( #4 - #2 * ( #5 - #8 ) )]"};
+void main(char argc, char* agrv[]) {
     
-    printf("\n calculate res: %.4f\n", calc_res.val);
+    float result_val = 0;
+    
+    second_calc_set_source_val(basedata_test, sizeof(float)); //设置源数据地址和偏移量
+    result_val = second_calc_fun(srcstr); //进行二次计算
+    
+    printf("\n calculate res: %.3f\n", result_val);
 }
 
 
