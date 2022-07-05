@@ -21,8 +21,9 @@
 /**** start 结构体自定义 ****/
 typedef struct scl_stack {
     float val;      //数值
-    uint8_t type;   //0-NULL 1-值 2-运算符
+    uint8_t type;   //0-NULL 1-数值 2-运算符
     char symbol;    //运算符号
+    uint8_t syb_val;    //符号值
 }scl_stack_typedef;
 /***** end 结构体自定义 ****/
 
@@ -58,10 +59,11 @@ static uint16_t* get_stack_top(scl_stack_typedef *ps) {
 }
 
 /* 入栈函数 @t:1值 2运算符*/
-static void in_stack(scl_stack_typedef *pstack, uint16_t *topnum, float v, uint8_t t, char s) {
+static void in_stack(scl_stack_typedef *pstack, uint16_t *topnum, float v, uint8_t t, char s, uint8_t sval) {
     pstack[*topnum].val = v;
     pstack[*topnum].type = t;
     pstack[*topnum].symbol = s;
+    pstack[*topnum].syb_val = sval;
     (*topnum)++;
 }
 
@@ -111,7 +113,7 @@ static void print_stack(scl_stack_typedef *pstack) {
     else return;
 
     for(i=0; i<num; i++) {
-        printf("%-4d %-4d  %4.3f  %c\n", i, pstack[i].type, pstack[i].val, pstack[i].symbol);
+        printf("%-4d %-4d  %4.3f  %-3c%d\n", i, pstack[i].type, pstack[i].val, pstack[i].symbol, pstack[i].syb_val);
     }
 }
 
@@ -134,7 +136,7 @@ static int get_num(char *pch) {
 static int get_num_digit(int num) {
     uint8_t pos=0;
     if(num == 0) {
-        pos = 0;
+        pos = 1;
     }
     pos = 1;
     while(num / 10) {
@@ -245,7 +247,7 @@ static int scl_presolv(char* str) {
                     break;
                 }
                 /* 入栈 */
-                in_stack(scl_stack_pre, &pre_top, scl_get_value(numid), 1, 0);
+                in_stack(scl_stack_pre, &pre_top, scl_get_value(numid), 1, 0, 0);
                 /* 字符串向后偏移 位数 */
                 numdigit = get_num_digit(numid);
                 i += numdigit;
@@ -263,10 +265,19 @@ static int scl_presolv(char* str) {
                 /* 固定数值入栈 */
                 numid = get_num(&str[i]);
                 /* 入栈 */
-                in_stack(scl_stack_pre, &pre_top, numid, 1, 0);
+                in_stack(scl_stack_pre, &pre_top, numid, 1, 0, 0);
                 /* 字符串向后偏移 位数 */
                 numdigit = get_num_digit(numid);
                 i += (numdigit-1);
+            break;
+
+            case 'b':
+                numid = get_num(&str[i+1]);
+                /* 入栈 */
+                in_stack(scl_stack_pre, &pre_top, 0, 2, str[i], numid);
+                /* 字符串向后偏移 位数 */
+                numdigit = get_num_digit(numid);
+                i += numdigit;
             break;
 
             case '+':
@@ -275,12 +286,11 @@ static int scl_presolv(char* str) {
             case '/':
             case '(':
             case ')':
-            case 'b':
             case 'f':
             case '~':
             case '^':
                 /* 运算符号入栈 */
-                in_stack(scl_stack_pre, &pre_top, 0, 2, str[i]);
+                in_stack(scl_stack_pre, &pre_top, 0, 2, str[i], 0);
             break;
 
             default:break;
@@ -302,19 +312,20 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
     scl_stack_typedef *st_cur, *st_cur2;
     float cval = 0; 
     char cchar = 0;
+    uint8_t bit_val = 0;
 
     /* 从预处理栈中逐个取出进行计算 */
     while(st_cur = out_stack(tar_stack, tar_topnum)) {
         /* 取出是数值 */
         if(st_cur->type == 1) {
             /* 数值先入栈，等待运算符号 */
-            in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol);
+            in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol, 0);
         }
         /* 取出是符号 */
         else if(st_cur->type == 2) {
             /* +和- 先入栈，最后统一计算 */
             if(st_cur->symbol == '+' || st_cur->symbol == '-') {
-                in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol);
+                in_stack(st_recs, &recs_topnum, st_cur->val, st_cur->type, st_cur->symbol, 0);
             }
             /* 乘除运算 */
             else if(st_cur->symbol == '*' || st_cur->symbol == '/') {
@@ -327,7 +338,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                         cval = st_cur2->val / out_stack(st_recs, &recs_topnum)->val;
                     }
                     /* 将*和/计算后的结果入栈 */
-                    in_stack(st_recs, &recs_topnum, cval, 1, 0);
+                    in_stack(st_recs, &recs_topnum, cval, 1, 0, 0);
                 }
                 /* *和/后面是运算符，根据符号分别处理 */
                 else if(out_try_stack(tar_stack, tar_topnum)->type == 2) {
@@ -336,20 +347,32 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                         /* 取出左括号 */
                         out_stack(tar_stack, tar_topnum);
                         /* 补入左括号前的符号 */
-                        in_stack(st_recs, &recs_topnum, 0, 2, st_cur->symbol);
+                        in_stack(st_recs, &recs_topnum, 0, 2, st_cur->symbol, 0);
                         /* 递归 */
                         st_rec = scl_calc(tar_stack, tar_topnum);
                         /* 递归后的结果入栈 */
-                        in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol);
+                        in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol, 0);
                     }
                 }
+            }
+            /* 取位符 b */
+            else if( st_cur->symbol == 'b' ) {
+                /* b后面是左括号 */
+                if(out_try_stack(tar_stack, tar_topnum)->type == 2 && out_try_stack(tar_stack, tar_topnum)->symbol == '(') {
+                    out_stack(tar_stack, tar_topnum);
+                }
+                /* 递归 */
+                st_rec = scl_calc(tar_stack, tar_topnum);
+                /* 进行取位运算 */
+                bit_val = (uint32_t)(st_rec.val) >> (st_cur->syb_val);
+                in_stack(st_recs, &recs_topnum, bit_val, 1, 0, 0);
             }
             /* 遇到左括号先入临时栈 */
             else if( st_cur->symbol == '(' ) {
                 /* 递归 */
                 st_rec = scl_calc(tar_stack, tar_topnum);
                 /* 递归后的结果入栈 */
-                in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol);
+                in_stack(st_recs, &recs_topnum, st_rec.val, st_rec.type, st_rec.symbol, 0);
             }
             /* 遇到右括号计算临时栈里面的内容 */
             else if( st_cur->symbol == ')' ) {
@@ -433,7 +456,7 @@ float second_calc_fun(char* express) {
     }
 
     /* 打印栈中数据 */
-    // print_stack(scl_stack_pre);
+    print_stack(scl_stack_pre);
 
     /* 颠倒字符串顺序，方便出栈 */
     reversal_stack(scl_stack_pre);
@@ -444,14 +467,14 @@ float second_calc_fun(char* express) {
     return calc_res.val;
 }
 
-char srcstr[50] = {"[#1 + #2 * #3 - ( #4 - 3 * ( #5 - #8 ) ) + 100]"};
-char srcstr2[50] = {"[1 + 2 * 3 - 3 * ( 4 - 3 * (2-4) )]"};
+char srcstr[50] = {"[#1 + #2 * #13 - ( #4 - 3 * ( #5 - #9 ) ) + 100]"};
+char srcstr2[50] = {"[b1(#2)]"};
 void main(char argc, char* agrv[]) {
     
     float result_val = 0;
     
     second_calc_set_source_val(basedata_test, sizeof(float)); //设置源数据地址和偏移量
-    result_val = second_calc_fun(srcstr); //进行二次计算
+    result_val = second_calc_fun(srcstr2); //进行二次计算
     
     printf("\n calculate res: %.3f\n", result_val);
 }
