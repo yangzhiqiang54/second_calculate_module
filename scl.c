@@ -120,7 +120,7 @@ static void print_stack(scl_stack_typedef *pstack) {
 /* 从字符串指定位置取出连续的数字，返回整形 */
 static int get_num(char *pch) {
     int i=0,temp=0;
-    if(pch[0] < '1' || pch[0] > '9') {
+    if(pch[0] < '0' || pch[0] > '9') {
         return -1;
     }
     temp = pch[0] - 0x30;
@@ -225,15 +225,15 @@ static int scl_presolv(char* str) {
     stlen -= j; //去除无效字符后的字符串长度
 
     /* 处理连续符号 */
-    const char continutchar[10] = {'+','-','*','/','b','f','~','^'};
-    for(i=1; i<stlen-1; i++) {
-        if(strchr(continutchar, str[i]) != NULL) {
-            if(strchr(continutchar, str[i+1]) != NULL) {
-                res = -3;
-                goto EXIT;
-            }
-        }
-    }
+    // const char continutchar[10] = {'+','-','*','/','b','f','~','^'};
+    // for(i=1; i<stlen-1; i++) {
+    //     if(strchr(continutchar, str[i]) != NULL) {
+    //         if(strchr(continutchar, str[i+1]) != NULL) {
+    //             res = -3;
+    //             goto EXIT;
+    //         }
+    //     }
+    // }
         
     /* 将输入字符格式化到预处理栈中，从右往左将字符串入栈 */
     int numid, numdigit;
@@ -273,6 +273,7 @@ static int scl_presolv(char* str) {
 
             case 'b':
                 numid = get_num(&str[i+1]);
+                if(numid > 15) numid = 15;
                 /* 入栈 */
                 in_stack(scl_stack_pre, &pre_top, 0, 2, str[i], numid);
                 /* 字符串向后偏移 位数 */
@@ -312,7 +313,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
     scl_stack_typedef *st_cur, *st_cur2;
     float cval = 0; 
     char cchar = 0;
-    uint8_t bit_val = 0;
+    uint16_t bit_val = 0;
 
     /* 从预处理栈中逐个取出进行计算 */
     while(st_cur = out_stack(tar_stack, tar_topnum)) {
@@ -365,6 +366,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                 st_rec = scl_calc(tar_stack, tar_topnum);
                 /* 进行取位运算 */
                 bit_val = (uint32_t)(st_rec.val) >> (st_cur->syb_val);
+                bit_val &= 0x0001;
                 in_stack(st_recs, &recs_topnum, bit_val, 1, 0, 0);
             }
             /* 遇到左括号先入临时栈 */
@@ -456,7 +458,7 @@ float second_calc_fun(char* express) {
     }
 
     /* 打印栈中数据 */
-    print_stack(scl_stack_pre);
+    // print_stack(scl_stack_pre);
 
     /* 颠倒字符串顺序，方便出栈 */
     reversal_stack(scl_stack_pre);
@@ -468,15 +470,16 @@ float second_calc_fun(char* express) {
 }
 
 char srcstr[50] = {"[#1 + #2 * #13 - ( #4 - 3 * ( #5 - #9 ) ) + 100]"};
-char srcstr2[50] = {"[b1(#2)]"};
+char srcstr2[50] = {"[b0(9) + b3(9)]"};
+
 void main(char argc, char* agrv[]) {
     
     float result_val = 0;
     
     second_calc_set_source_val(basedata_test, sizeof(float)); //设置源数据地址和偏移量
     result_val = second_calc_fun(srcstr2); //进行二次计算
-    
     printf("\n calculate res: %.3f\n", result_val);
+
 }
 
 
