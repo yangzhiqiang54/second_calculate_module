@@ -412,7 +412,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                 /* 取出后面的括号然后递归 */
                 out_stack(tar_stack, tar_topnum);
                 st_rec = scl_calc(tar_stack, tar_topnum);
-                if((uint8_t)st_rec.val == 1) {
+                if(((uint16_t)st_rec.val & 0x0001) == 1) {
                     in_stack(st_recs, &recs_topnum, -1, 1, 0, 0);
                 }
                 else {
