@@ -307,14 +307,12 @@ static int scl_presolv(char* str) {
 /*
     进行出栈操作并进行算数运算
 */
-uint8_t main_pos = 0;
 static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_topnum) {
     scl_stack_typedef st_recs[STACK_TOPMAXNUM] = {0};
     uint16_t recs_topnum = 0;
     scl_stack_typedef st_res = {0}, st_rec = {0};
     scl_stack_typedef *st_cur, *st_cur2;
     float cval = 0; 
-    char cchar = 0;
     uint16_t bit_val = 0, turn_val = 0;
 
     /* 从预处理栈中逐个取出进行计算 */
