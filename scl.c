@@ -20,7 +20,7 @@
 #include "scl.h"
 
 /*宏定义*/
-#define STACK_TOPMAXNUM 50
+#define STACK_TOPMAXNUM 20
 
 /**** start 结构体自定义 ****/
 typedef struct scl_stack {
@@ -168,7 +168,7 @@ void second_calc_set_source_val(float *src, int offset_byte) {
     获取#id所对应的数值,此数值由外部提供
     @id:从1开始 
 */
-float basedata_test[20] = {1,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
+float basedata_test[20] = {220123,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
 static float scl_get_value(uint16_t id) {
     #if 1 //起始地址加偏移量取实际数据
         uint8_t *add = NULL;
@@ -539,6 +539,7 @@ float second_calc_fun(char* express) {
 char srcstr[50] = {"[#1 + #2 * #13 - ( #4 - 3 * ( #5 - #9 ) ) + 100]"};
 char srcstr2[50] = {"[8^(1+#2) + 9^(-2)]"};
 char srcstr3[50] = {"[ f(~(b1(#2))) * (-12) ]"};
+char srcstr4[50] = {"[ #1^(#2-5) ]"};
 
 void main(char argc, char* agrv[]) {
     
@@ -553,6 +554,9 @@ void main(char argc, char* agrv[]) {
     printf("\n calculate res: %.3f\n", result_val);
 
     result_val = second_calc_fun(srcstr3); //进行二次计算
+    printf("\n calculate res: %.3f\n", result_val);
+
+    result_val = second_calc_fun(srcstr4); //进行二次计算
     printf("\n calculate res: %.3f\n", result_val);
 
 }
