@@ -168,7 +168,7 @@ void second_calc_set_source_val(float *src, int offset_byte) {
     获取#id所对应的数值,此数值由外部提供
     @id:从1开始 
 */
-float basedata_test[20] = {220123,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
+float basedata_test[20] = {2,2,3,4,5,6,7,8,9,10,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9};
 static float scl_get_value(uint16_t id) {
     #if 1 //起始地址加偏移量取实际数据
         uint8_t *add = NULL;
@@ -336,7 +336,7 @@ static scl_stack_typedef scl_calc(scl_stack_typedef *tar_stack, uint16_t *tar_to
                     if(st_cur->symbol == '*') {
                         cval = st_cur2->val * out_stack(st_recs, &recs_topnum)->val;
                     }else if(st_cur->symbol == '/') {
-                        cval = st_cur2->val / out_stack(st_recs, &recs_topnum)->val;
+                        cval = out_stack(st_recs, &recs_topnum)->val / st_cur2->val;
                     }
                     /* 将*和/计算后的结果入栈 */
                     in_stack(st_recs, &recs_topnum, cval, 1, 0, 0);
@@ -536,10 +536,10 @@ float second_calc_fun(char* express) {
     return calc_res.val;
 }
 
-char srcstr[50] = {"[#1 + #2 * #13 - ( #4 - 3 * ( #5 - #9 ) ) + 100]"};
+char srcstr[50] = {"[#1 + #2 * #13 - ( #4 - 3 * ( #5 - #9 ) ) + 101]"};
 char srcstr2[50] = {"[8^(1+#2) + 9^(-2)]"};
 char srcstr3[50] = {"[ f(~(b1(#2))) * (-12) ]"};
-char srcstr4[50] = {"[ #1^(#2-5) ]"};
+char srcstr4[50] = {"[ #2 + (#1/10) ]"};
 
 void main(char argc, char* agrv[]) {
     
